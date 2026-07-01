@@ -1,0 +1,14 @@
+[package]
+name = "vane-data"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vane-model.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+csv.workspace = true
+ureq = "2"

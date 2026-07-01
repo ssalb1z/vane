@@ -1,0 +1,12 @@
+/target
+/data
+**/*.rs.bk
+.DS_Store
+# python
+python/**/.venv
+python/**/__pycache__
+*.pyc
+# scratch outputs
+*.parquet
+dispatch.json
+forecast.parquet

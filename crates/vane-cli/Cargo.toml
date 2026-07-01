@@ -1,0 +1,18 @@
+[package]
+name = "vane"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "vane"
+path = "src/main.rs"
+
+[dependencies]
+vane-model.workspace = true
+vane-data.workspace = true
+vane-sim.workspace = true
+vane-optimize.workspace = true
+vane-score.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+chrono.workspace = true

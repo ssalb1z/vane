@@ -1,0 +1,13 @@
+[package]
+name = "vane-model"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+toml.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true

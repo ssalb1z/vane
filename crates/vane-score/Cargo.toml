@@ -1,0 +1,15 @@
+[package]
+name = "vane-score"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vane-sim.workspace = true
+vane-optimize.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+vane-model.workspace = true
+vane-data.workspace = true
+chrono.workspace = true

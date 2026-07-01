@@ -1,0 +1,10 @@
+[package]
+name = "vane-sim"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vane-model.workspace = true
+vane-data.workspace = true
+anyhow.workspace = true
+chrono.workspace = true

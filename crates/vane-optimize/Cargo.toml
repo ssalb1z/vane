@@ -1,0 +1,14 @@
+[package]
+name = "vane-optimize"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+vane-sim.workspace = true
+anyhow.workspace = true
+good_lp = { version = "1", default-features = false, features = ["highs"] }
+
+[dev-dependencies]
+vane-model.workspace = true
+vane-data.workspace = true
+chrono.workspace = true

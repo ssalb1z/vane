@@ -1,0 +1,43 @@
+# Example neighborhood for vane. ~200 homes in the Oakville area.
+# Default figures and their provenance are documented in DESIGN.md §5 / §8
+# (e.g. the 0.59 kW/thermostat reduction is IESO's PY2024 evaluated impact).
+
+[neighborhood]
+name = "Oakville-demo"
+homes = 200
+timezone = "America/Toronto"
+lat = 43.45
+lon = -79.68
+
+# Fraction of homes fitted with each asset class.
+[penetration]
+smart_thermostat = 0.55
+home_battery     = 0.12
+ev_charger       = 0.25
+rooftop_solar    = 0.18
+
+[assets.thermostat]
+max_setback_c     = 2.0      # Peak Perks: up to 2 °C above setpoint
+precool_c         = -1.0     # optional 30-min pre-cool
+avg_reduction_kw  = 0.59     # per-thermostat measured kW (IESO PY2024)
+snapback_kw       = 0.173    # rebound load, first hour after event
+discomfort_weight = 1.0
+
+[assets.battery]
+capacity_kwh       = 13.5    # Powerwall-class
+power_kw           = 5.0
+roundtrip_eff      = 0.90
+soc_init_frac      = 0.5
+soc_min_frac       = 0.10
+cycle_cost_per_kwh = 0.02
+
+[assets.ev_charger]
+power_kw     = 7.2           # L2
+required_kwh = 30.0
+deadline     = "07:00"
+plugin       = "18:00"
+
+[assets.solar]
+capacity_kw_dc = 6.0
+inverter_kw_ac = 5.0
+derate         = 0.85
