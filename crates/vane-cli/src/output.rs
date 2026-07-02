@@ -1,9 +1,36 @@
 //! Human-readable output: neighborhood summary, dispatch table, scorecard.
 
 use chrono::NaiveDate;
+use vane_data::Scenario;
+use vane_forecast::Forecast;
 use vane_model::neighborhood::Summary;
 use vane_optimize::DispatchSchedule;
 use vane_score::Scorecard;
+
+/// Per-hour forecast vs actual for demand and solar irradiance.
+pub fn print_forecast(actual: &Scenario, fc: &Forecast, label: &str) {
+    println!("forecast ({label}) vs actual — {}", actual.date);
+    println!(
+        "  {:>5}  {:>12}  {:>12}  {:>10}  {:>10}",
+        "hour", "demand f MW", "demand a MW", "ghi f", "ghi a"
+    );
+    let n = actual.demand_mw.values.len();
+    let mut abs_err = 0.0;
+    for t in 0..n {
+        let df = fc.demand_mw.at(t);
+        let da = actual.demand_mw.at(t);
+        abs_err += (df - da).abs();
+        println!(
+            "  {:>02}:00  {:>12.0}  {:>12.0}  {:>10.0}  {:>10.0}",
+            t,
+            df,
+            da,
+            fc.ghi_w_m2.at(t),
+            actual.ghi_w_m2.at(t),
+        );
+    }
+    println!("  mean abs demand error: {:.0} MW", abs_err / n as f64);
+}
 
 pub fn print_summary(name: &str, s: &Summary) {
     println!("neighborhood: {name}");
@@ -72,6 +99,8 @@ pub fn print_scorecard(
     date: NaiveDate,
     window: &str,
     synthetic: bool,
+    forecast_label: &str,
+    perfect_achieved_mw: Option<f64>,
     marginal_cad_per_mw: Option<f64>,
 ) {
     let src = if synthetic {
@@ -85,6 +114,7 @@ pub fn print_scorecard(
         card.program.label()
     );
     println!("  data source          {src}");
+    println!("  forecast             {forecast_label}");
     println!();
     println!("  Target shave         {:.2} MW", card.target_mw);
     println!(
@@ -105,6 +135,13 @@ pub fn print_scorecard(
         "  Emissions avoided    {:.3} tCO2e   (AVERAGE intensity, not marginal)",
         card.emissions_avoided_tonnes()
     );
+    if let Some(p) = perfect_achieved_mw {
+        let delta = card.achieved_mean_mw - p;
+        println!(
+            "  Forecast vs perfect  {:.3} vs {:.3} MW achieved ({:+.3} MW from forecast error)",
+            card.achieved_mean_mw, p, delta
+        );
+    }
     if let Some(m) = marginal_cad_per_mw {
         if m.is_finite() {
             println!();

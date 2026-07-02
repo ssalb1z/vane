@@ -26,6 +26,12 @@ vane simulate examples/oakville-demo.toml \
 vane dispatch examples/oakville-demo.toml \
   --date 2024-08-01 --target-mw 0.15 --window 17:00-20:00
 
+# Forecasting: plan on a forecast, score against actuals. --forecast perfect
+# (default) | baseline (pure-Rust climatology) | python (temperature-aware ML)
+vane forecast examples/oakville-demo.toml --date 2024-07-15 --forecast python
+vane simulate examples/oakville-demo.toml --date 2024-08-20 \
+  --target-mw 0.32 --window 17:00-20:00 --forecast python
+
 # Pull real IESO + Open-Meteo data (needs network), then run against it
 vane fetch --date 2024-08-01 --out data
 vane simulate examples/oakville-demo.toml --date 2024-08-01 \
@@ -50,13 +56,15 @@ Runs default to a **deterministic synthetic** summer-peak day (no network). Use
 
 ## Architecture
 
-Rust workspace (core) + a thin Python forecaster (planned). Crates:
+Rust core + a thin Python forecaster (mirrors the `scrye` shape). Crates:
 `vane-model` (data model) · `vane-data` (ingest: IESO/weather/synthetic) ·
 `vane-sim` (asset physics) · `vane-optimize` (the MILP core, HiGHS via `good_lp`) ·
-`vane-score` (program settlement) · `vane-cli` (`vane`).
+`vane-score` (program settlement) · `vane-forecast` (climatology + Python bridge) ·
+`vane-cli` (`vane`). The forecaster is a stdlib-only Python subprocess over a JSON
+contract (`python/vane_forecast/predict.py`) — swap in LightGBM without touching
+the boundary.
 
 ## Status
 
-Steps 1–6 of the build order (DESIGN.md §13) are implemented and tested end-to-end.
-Remaining: the Python forecaster (Stage 1) with forecast-error reporting, and polish
-(`--out json`, more examples).
+Steps 1–7 of the build order (DESIGN.md §13) are implemented and tested end-to-end
+(19 tests). Remaining: polish (`--out json`, more example neighborhoods).

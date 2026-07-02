@@ -13,6 +13,7 @@ vane-data.workspace = true
 vane-sim.workspace = true
 vane-optimize.workspace = true
 vane-score.workspace = true
+vane-forecast.workspace = true
 clap.workspace = true
 anyhow.workspace = true
 chrono.workspace = true

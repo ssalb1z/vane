@@ -1091,6 +1091,7 @@ dependencies = [
  "chrono",
  "clap",
  "vane-data",
+ "vane-forecast",
  "vane-model",
  "vane-optimize",
  "vane-score",
@@ -1114,6 +1115,14 @@ dependencies = [
 [[package]]
 name = "vane-forecast"
 version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "serde",
+ "serde_json",
+ "vane-data",
+ "vane-model",
+]
 
 [[package]]
 name = "vane-model"

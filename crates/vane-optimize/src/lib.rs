@@ -59,7 +59,7 @@ impl DispatchSchedule {
 
 /// Naive counterfactual EV charging: charge at full power from plug-in until the
 /// required energy is delivered. This is the load the optimizer shifts away from.
-fn naive_ev_profile(si: &SimInputs) -> Vec<f64> {
+pub fn naive_ev_profile(si: &SimInputs) -> Vec<f64> {
     let mut out = vec![0.0; si.steps];
     for ev in &si.evs {
         let mut remaining = ev.required_kwh;
@@ -260,6 +260,81 @@ pub fn optimize(si: &SimInputs, target_kw: f64) -> anyhow::Result<DispatchSchedu
     })
 }
 
+fn mean_cycle_cost(si: &SimInputs) -> f64 {
+    if si.batteries.is_empty() {
+        return 0.0;
+    }
+    si.batteries.iter().map(|b| b.cycle_cost_per_kwh).sum::<f64>() / si.batteries.len() as f64
+}
+
+/// Economic cost of a schedule under `si`'s prices: energy + thermostat
+/// discomfort + battery cycling. Excludes the shortfall penalty (which is an
+/// optimization device, not a real cost). Used to price forecast error.
+pub fn economic_cost(si: &SimInputs, s: &DispatchSchedule) -> f64 {
+    let dt = si.dt_h;
+    let mcc = mean_cycle_cost(si);
+    let mut cost = 0.0;
+    for t in 0..si.steps {
+        cost += si.price_per_kwh[t] * dt * s.optimized_grid_kw[t];
+        cost += si.thermostats.discomfort_weight * dt * s.curtail_kw[t];
+        // No simultaneous charge/discharge (binary lock) ⇒ |net| == throughput.
+        cost += mcc * dt * s.battery_net_kw[t].abs();
+    }
+    cost
+}
+
+/// Execute a committed `plan`'s control decisions under *actual* conditions
+/// (`si`) and report the realized outcome. This is how a forecast-based plan is
+/// scored against reality: battery and EV setpoints are weather-independent and
+/// carried through; thermostat curtailment is clamped to actual availability.
+pub fn replay(si: &SimInputs, plan: &DispatchSchedule, target_kw: f64) -> DispatchSchedule {
+    let n = si.steps;
+    let dt = si.dt_h;
+    let sb = si.thermostats.snapback_ratio;
+    let naive_ev = naive_ev_profile(si);
+
+    let curtail_kw: Vec<f64> = (0..n)
+        .map(|t| plan.curtail_kw[t].min(si.thermostats.avail_kw[t]).max(0.0))
+        .collect();
+
+    let mut baseline_grid_kw = vec![0.0; n];
+    let mut optimized_grid_kw = vec![0.0; n];
+    let mut reduction_kw = vec![0.0; n];
+    let battery_net_kw = plan.battery_net_kw.clone();
+    let ev_charge_kw = plan.ev_charge_kw.clone();
+
+    for t in 0..n {
+        let snap = if t > 0 { sb * curtail_kw[t - 1] } else { 0.0 };
+        optimized_grid_kw[t] =
+            si.baseline_net_kw[t] - battery_net_kw[t] + ev_charge_kw[t] - curtail_kw[t] + snap;
+        baseline_grid_kw[t] = si.baseline_net_kw[t] + naive_ev[t];
+        reduction_kw[t] = baseline_grid_kw[t] - optimized_grid_kw[t];
+    }
+
+    let mut shortfall_kw = vec![0.0; n];
+    for &t in &si.window_steps {
+        shortfall_kw[t] = (target_kw - reduction_kw[t]).max(0.0);
+    }
+
+    let mut out = DispatchSchedule {
+        steps: n,
+        dt_h: dt,
+        window_steps: si.window_steps.clone(),
+        target_kw,
+        baseline_grid_kw,
+        optimized_grid_kw,
+        reduction_kw,
+        shortfall_kw,
+        curtail_kw,
+        battery_net_kw,
+        ev_charge_kw,
+        naive_ev_kw: naive_ev,
+        objective: 0.0,
+    };
+    out.objective = economic_cost(si, &out);
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -296,6 +371,18 @@ mod tests {
         // No simultaneous charge & discharge: battery_net has a definite sign per step.
         // (Implied by the binary lock; here we just sanity-check finiteness.)
         assert!(sched.optimized_grid_kw.iter().all(|v| v.is_finite()));
+    }
+
+    #[test]
+    fn replay_of_optimal_reproduces_reduction() {
+        let si = inputs();
+        let sched = optimize(&si, 80.0).unwrap();
+        // Replaying the optimal plan under the SAME conditions must reproduce it.
+        let re = replay(&si, &sched, 80.0);
+        for &t in &si.window_steps {
+            assert!((re.reduction_kw[t] - sched.reduction_kw[t]).abs() < 1e-6);
+        }
+        assert!((economic_cost(&si, &re) - economic_cost(&si, &sched)).abs() < 1e-6);
     }
 
     #[test]

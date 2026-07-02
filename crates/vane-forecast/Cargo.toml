@@ -1,6 +1,12 @@
 [package]
 name = "vane-forecast"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]
+vane-model.workspace = true
+vane-data.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+chrono.workspace = true

@@ -231,6 +231,10 @@ Deliberately **subordinate** to the optimizer, and staged:
 
 The forecast feeds the MILP's `base_demand[t]` and `solar[t]`. Because scoring replays a *historical* day (§9), we can also run the optimizer on **perfect foresight** (actuals) vs. **forecast** and report the cost of forecast error — a nice built-in evaluation.
 
+**Implemented (build-order step 7).** `--forecast perfect|baseline|python`. Stage 0 (`baseline`) is pure-Rust climatology (per-hour mean of the prior 14 days). Stage 1 (`python`) is a subprocess over a JSON contract (`python/vane_forecast/predict.py`): a stdlib-only per-hour OLS of demand on temperature — swap in LightGBM without touching the boundary. Forecast modes **plan** on the forecast, then **replay** those committed controls under actuals; the scorecard reports achieved-vs-perfect MW.
+
+A subtlety worth recording: achieved *reduction* is defined from the control decisions (curtailment + battery + EV shift), so a demand/solar level error **cancels out** and doesn't change achieved reduction. The channel through which forecast skill becomes dispatch value is **temperature → available thermostat curtailment**: on a hot day, climatology under-provisions cheap curtailment and falls short near the feasibility frontier, while the temperature-aware model matches perfect foresight. So forecast value is real but modest under a *reduction-delta* target; it would be larger under an *absolute-peak-cap* target (a natural follow-up). The forecaster's headline win is accuracy: the temperature-aware model roughly halves demand MAE vs climatology on anomalous days.
+
 ---
 
 ## 8. Program scoring modes (`vane-score`) — grounded in verified mechanics
@@ -342,5 +346,7 @@ Carried forward from research; confirm against live primary sources at implement
 4. `vane-optimize` MILP with `good_lp`/HiGHS — the core; `dispatch` command working end-to-end.
 5. `vane-score` with `peak-perks` first (simplest, best-sourced M&V), then `capacity-auction`, `york-nwa`.
 6. `vane simulate` one-shot wiring + scorecard.
-7. Python forecaster (Stage 1) + forecast-error reporting.
+7. Python forecaster (Stage 1) + forecast-error reporting. ✅
 8. Remaining polish (`--out json`, docs, more example neighborhoods).
+
+Steps 1–7 implemented and tested end-to-end (19 tests). Step 8 remains.

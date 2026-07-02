@@ -29,6 +29,11 @@ pub fn scenario(date: NaiveDate, g: Granularity) -> Scenario {
     let dt_h = g.dt_hours();
     let seed = date.num_days_from_ce() as u64;
 
+    // Per-day heat anomaly in [-1, 1]: hotter days run warmer AND draw more
+    // evening AC load, so demand co-varies with temperature across days. This is
+    // the signal a weather-aware forecaster can learn that climatology cannot.
+    let heat = wiggle(seed ^ 0xABCDEF, 0);
+
     let mut demand = Vec::with_capacity(steps);
     let mut price = Vec::with_capacity(steps);
     let mut emis = Vec::with_capacity(steps);
@@ -38,8 +43,9 @@ pub fn scenario(date: NaiveDate, g: Granularity) -> Scenario {
     for i in 0..steps {
         let hour = i as f64 * dt_h; // 0.0 .. 24.0
 
-        // Temperature: diurnal, min ~05:00, max ~16:00.
-        let t_c = 24.0 + 8.0 * (2.0 * PI * (hour - 16.0) / 24.0).cos() * 0.5
+        // Temperature: diurnal, min ~05:00, max ~16:00, shifted by the day's heat.
+        let t_c = 24.0 + 4.0 * heat
+            + 8.0 * (2.0 * PI * (hour - 16.0) / 24.0).cos() * 0.5
             + 8.0 * (2.0 * PI * (hour - 9.0) / 24.0).sin() * 0.5
             + 0.6 * wiggle(seed ^ 0x7, i);
 
@@ -52,7 +58,7 @@ pub fn scenario(date: NaiveDate, g: Granularity) -> Scenario {
 
         // Demand (MW): baseload + morning shoulder + strong late-afternoon AC peak.
         let morning = 1800.0 * (-((hour - 8.0).powi(2)) / 6.0).exp();
-        let evening = 5200.0 * (-((hour - 17.5).powi(2)) / 9.0).exp();
+        let evening = 5200.0 * (1.0 + 0.12 * heat) * (-((hour - 17.5).powi(2)) / 9.0).exp();
         let d = 13500.0 + morning + evening + 250.0 * wiggle(seed ^ 0x11, i);
 
         // Price ($/MWh): tracks demand above a floor, mild spikes at peak.
