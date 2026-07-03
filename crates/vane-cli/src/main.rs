@@ -122,15 +122,30 @@ fn window_str(w: &Window) -> String {
     format!("{}-{}", w.start.format("%H:%M"), w.end.format("%H:%M"))
 }
 
-/// Prior-day training scenarios for the forecaster. Synthetic source uses the
-/// 14 days before `date`; IESO historical training is not yet wired (returns
-/// empty, and callers fall back to perfect foresight).
-fn training_scenarios(date: NaiveDate, g: Granularity, source: Source) -> Vec<Scenario> {
+/// Prior-day training scenarios for the forecaster: the 14 days before `date`.
+/// Synthetic source generates them; IESO source fetches real history (and on a
+/// fetch failure warns and returns empty, so callers fall back to perfect).
+fn training_scenarios(
+    date: NaiveDate,
+    g: Granularity,
+    source: Source,
+    lat: f64,
+    lon: f64,
+) -> Vec<Scenario> {
     match source {
         Source::Synthetic => (1..=14)
             .map(|d| vane_data::synthetic::scenario(date - chrono::Duration::days(d), g))
             .collect(),
-        Source::Ieso => Vec::new(),
+        Source::Ieso => {
+            let dates: Vec<NaiveDate> = (1..=14).map(|d| date - chrono::Duration::days(d)).collect();
+            match scenario::ieso_training(&dates, lat, lon, g) {
+                Ok(v) => v,
+                Err(e) => {
+                    eprintln!("warn: IESO training fetch failed: {e}");
+                    Vec::new()
+                }
+            }
+        }
     }
 }
 
@@ -195,11 +210,9 @@ fn main() -> Result<()> {
             let spec = NeighborhoodSpec::from_path(&spec)?;
             let n = vane_model::neighborhood::generate(&spec, seed)?;
             let (actual, _synth) = scenario::resolve(source, date, granularity, n.lat, n.lon)?;
-            let train = training_scenarios(date, granularity, source);
+            let train = training_scenarios(date, granularity, source, n.lat, n.lon);
             if train.is_empty() {
-                anyhow::bail!(
-                    "no training data (IESO historical training not wired); use --source synthetic"
-                );
+                anyhow::bail!("no training data available for this date/source");
             }
             let mode = if forecast == ForecastMode::Perfect {
                 ForecastMode::Baseline
@@ -235,10 +248,10 @@ fn main() -> Result<()> {
                     ForecastMode::Perfect.label().to_string(),
                 )
             } else {
-                let train = training_scenarios(date, granularity, source);
+                let train = training_scenarios(date, granularity, source, n.lat, n.lon);
                 if train.is_empty() {
                     eprintln!(
-                        "note: IESO historical training isn't wired yet; using perfect foresight"
+                        "note: no training history available; using perfect foresight"
                     );
                     (
                         vane_optimize::optimize(&actual_si, target_kw)?,

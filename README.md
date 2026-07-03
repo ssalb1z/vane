@@ -32,10 +32,11 @@ vane forecast examples/oakville-demo.toml --date 2024-07-15 --forecast python
 vane simulate examples/oakville-demo.toml --date 2024-08-20 \
   --target-mw 0.32 --window 17:00-20:00 --forecast python
 
-# Pull real IESO + Open-Meteo data (needs network), then run against it
+# Real IESO + Open-Meteo data (needs network). --source ieso also trains the
+# forecaster on the real prior-14-day history.
 vane fetch --date 2024-08-01 --out data
 vane simulate examples/oakville-demo.toml --date 2024-08-01 \
-  --target-mw 0.15 --window 17:00-20:00 --source ieso
+  --target-mw 0.32 --window 17:00-20:00 --source ieso --forecast python
 ```
 
 Runs default to a **deterministic synthetic** summer-peak day (no network). Use

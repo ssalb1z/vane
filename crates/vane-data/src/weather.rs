@@ -61,4 +61,28 @@ mod tests {
         assert_eq!(g.at(3), 0.0);
         assert_eq!(g.at(12), 500.0);
     }
+
+    #[test]
+    fn extracts_one_day_from_a_range() {
+        // Two days in one response (as returned by a range request); each day's
+        // temperature is tagged by its date so we can tell them apart.
+        let mut times = Vec::new();
+        let mut temps = Vec::new();
+        let mut ghis = Vec::new();
+        for (day, tag) in [("2024-07-31", 10.0), ("2024-08-01", 20.0)] {
+            for h in 0..24 {
+                times.push(format!("{day}T{h:02}:00"));
+                temps.push(tag + h as f64 * 0.01);
+                ghis.push(0.0);
+            }
+        }
+        let json = serde_json::json!({
+            "hourly": { "time": times, "temperature_2m": temps, "shortwave_radiation": ghis }
+        })
+        .to_string();
+
+        let (t, _) = parse_open_meteo(&json, NaiveDate::from_ymd_opt(2024, 8, 1).unwrap()).unwrap();
+        assert_eq!(t.values.len(), 24);
+        assert!((t.at(0) - 20.0).abs() < 1e-9, "picked wrong day: {}", t.at(0));
+    }
 }

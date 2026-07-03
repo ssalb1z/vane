@@ -27,11 +27,17 @@ pub fn ieso_hoep_url(year: i32) -> String {
     format!("{IESO_PUBLIC}/PriceHOEPPredispOR/PUB_PriceHOEPPredispOR_{year}.csv")
 }
 
-/// Open-Meteo historical archive for hourly GHI + temperature at a point.
-pub fn open_meteo_url(lat: f64, lon: f64, date: &str) -> String {
+/// Open-Meteo historical archive for hourly GHI + temperature at a point,
+/// for a date range (inclusive). One call covers many days.
+pub fn open_meteo_range_url(lat: f64, lon: f64, start: &str, end: &str) -> String {
     format!(
         "https://archive-api.open-meteo.com/v1/archive?latitude={lat}&longitude={lon}\
-         &start_date={date}&end_date={date}\
+         &start_date={start}&end_date={end}\
          &hourly=temperature_2m,shortwave_radiation&timezone=America%2FToronto"
     )
+}
+
+/// Single-day convenience wrapper over [`open_meteo_range_url`].
+pub fn open_meteo_url(lat: f64, lon: f64, date: &str) -> String {
+    open_meteo_range_url(lat, lon, date, date)
 }

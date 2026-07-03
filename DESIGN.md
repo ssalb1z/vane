@@ -235,6 +235,8 @@ The forecast feeds the MILP's `base_demand[t]` and `solar[t]`. Because scoring r
 
 A subtlety worth recording: achieved *reduction* is defined from the control decisions (curtailment + battery + EV shift), so a demand/solar level error **cancels out** and doesn't change achieved reduction. The channel through which forecast skill becomes dispatch value is **temperature → available thermostat curtailment**: on a hot day, climatology under-provisions cheap curtailment and falls short near the feasibility frontier, while the temperature-aware model matches perfect foresight. So forecast value is real but modest under a *reduction-delta* target; it would be larger under an *absolute-peak-cap* target (a natural follow-up). The forecaster's headline win is accuracy: the temperature-aware model roughly halves demand MAE vs climatology on anomalous days.
 
+`--source ieso` trains on **real** IESO history: the forecaster's prior-14-day training set is fetched live (each yearly demand/HOEP CSV once, weather as one range call, per-day parse failures skipped). On real data the accuracy gap is larger than on synthetic — e.g. for 2024-08-01, climatology demand MAE ≈ 2773 MW vs ≈ 1132 MW for the temperature-aware model (~59% lower), because real Ontario demand swings with weather day-to-day.
+
 ---
 
 ## 8. Program scoring modes (`vane-score`) — grounded in verified mechanics
