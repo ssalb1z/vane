@@ -351,4 +351,51 @@ Carried forward from research; confirm against live primary sources at implement
 7. Python forecaster (Stage 1) + forecast-error reporting. ✅
 8. Remaining polish (`--out json`, docs, more example neighborhoods).
 
-Steps 1–7 implemented and tested end-to-end (19 tests). Step 8 remains.
+Steps 1–7 implemented and tested end-to-end (20 tests), plus real-data
+forecaster training via `--source ieso` (part of step 8). Remaining step-8
+polish: `--out json`, more example neighborhoods.
+
+---
+
+## 14. Future development
+
+Directions informed by a 2026 review of the real DER-dispatch / VPP software
+landscape. vane's core choices already match production practice: **MILP/LP is
+the dominant technique** for planning and battery/market dispatch (NREL
+[REopt](https://github.com/NREL/REopt.jl), LBNL DER-CAM, and the commercial
+simulator [Gridcog](https://www.gridcog.com) all use it), while **RL is almost
+entirely academic** (~20 commercial deployments ever), validating decision #1.
+vane's "historical replay + score against real programs" is bid-strategy
+backtesting in miniature — a real product niche (Gridcog, PLEXOS are businesses
+built on it). What separates a learning tool from a commercial one is realism,
+network-awareness, and auditability. Concrete next steps, roughly in
+value-per-effort order:
+
+1. **Realistic residential load profiles.** Replace the scaled system-demand
+   shape (§5) with per-home profiles from NREL **ResStock**/dsgrid. This is the
+   biggest single realism win and would make baseline load and asset behavior
+   defensible rather than stylized.
+2. **Absolute-peak-cap target.** Add a "keep the neighborhood peak under X MW"
+   objective alongside the reduction-delta target. This is the formulation where
+   **forecast accuracy drives dollars** (§7): under a reduction target, forecast
+   error in demand/solar cancels; under a peak cap it directly changes how much
+   to dispatch. Closes the loop on the forecaster we already built.
+3. **Network / power-flow constraints.** Respect feeder/transformer limits
+   (integrate OpenDSS / GridLAB-D / pandapower). This is the real DERMS
+   differentiator and turns aggregate peak-shaving into a locational problem.
+4. **Billing-grade tariffs & markets.** Model OEB RPP (TOU/ULO/Tiered) resident
+   bill savings and post-MRP LMP/OZP arbitrage as distinct, accurate layers
+   (§11). Tariff accuracy is a commercial tool's moat (Gridcog).
+5. **Forecaster upgrades.** Swap the stdlib OLS for LightGBM/quantile models
+   behind the existing JSON boundary; add calendar/lag features; validate skill
+   with proper backtests over many historical days.
+6. **RL as a *benchmark*, not the core.** Once the MILP optimum and a proper
+   simulator exist, a learned policy becomes a legitimate research comparison
+   ("can it approach the LP optimum?") — the one place RL earns its keep here.
+7. **Commercial-neighborhood mode + Peak Performance.** Add commercial HVAC
+   loads and re-enable the Peak Performance program (§8), which was cut from v1
+   for lacking commercial load models.
+
+Explicitly *still* out of scope for the foreseeable future: real-time device
+control / live operation, and investment-grade auditability. vane is a
+simulator and teaching tool, not a DERMS.
